@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <div class="dash-header">
+        <div>
+          <h2 id="greeting">Welcome back</h2>
+          <p class="text-muted mb-0">Here's what's coming up.</p>
+        </div>
+        <a class="btn btn-primary" href="book-appointment.html">Book an appointment</a>
+      </div>
+
+      <div id="next-appointment-slot"></div>
+
+      <h3 class="mt-6">Quick links</h3>
+      <div class="panel-grid mt-4">
+        <a class="panel" href="find-doctor.html" style="text-decoration:none; color:inherit;">
+          <h4>Find a doctor</h4>
+          <p class="text-small text-muted mb-0">Search by specialization or get a department suggestion.</p>
+        </a>
+        <a class="panel panel-amber" href="live-queue.html" style="text-decoration:none; color:inherit;">
+          <h4>Live queue</h4>
+          <p class="text-small text-muted mb-0">Check your token and wait time if you've checked in.</p>
+        </a>
+        <a class="panel" href="family-members.html" style="text-decoration:none; color:inherit;">
+          <h4>Family members</h4>
+          <p class="text-small text-muted mb-0">Manage dependents and book on their behalf.</p>
+        </a>
+        <a class="panel panel-green" href="medical-timeline.html" style="text-decoration:none; color:inherit;">
+          <h4>Medical timeline</h4>
+          <p class="text-small text-muted mb-0">Your consultations, diagnoses, and prescriptions in one place.</p>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    const user = SmartCareUI.requireAuth(['ROLE_PATIENT']);
+
+    async function load() {
+      if (!user) return;
+      document.getElementById('greeting').textContent = `Welcome back, ${user.fullName.split(' ')[0]}`;
+
+      try {
+        const patient = await SmartCareAPI.getMyPatientProfile();
+        const appointments = await SmartCareAPI.getPatientAppointments(patient.id);
+        const upcoming = appointments
+          .filter(a => ['BOOKED', 'CONFIRMED', 'CHECKED_IN'].includes(a.status))
+          .sort((a, b) => (a.appointmentDate + a.appointmentTime).localeCompare(b.appointmentDate + b.appointmentTime))[0];
+
+        const slot = document.getElementById('next-appointment-slot');
+        if (!upcoming) {
+          slot.innerHTML = '<div class="empty-state">No upcoming appointments yet. When you book one, it will show up here.</div>';
+          return;
+        }
+        slot.innerHTML = `
+          <div class="panel panel-teal">
+            <div class="flex-between">
+              <div>
+                <h4 class="mb-0">Dr. ${SmartCareUI.escapeHtml(upcoming.doctorName)} &middot; ${SmartCareUI.escapeHtml(upcoming.departmentName)}</h4>
+                <p class="text-small text-muted mb-0">${SmartCareUI.formatDate(upcoming.appointmentDate)} at ${SmartCareUI.formatTime(upcoming.appointmentTime)}</p>
+              </div>
+              <span class="badge ${SmartCareUI.statusBadgeClass(upcoming.status)}">${upcoming.status}</span>
+            </div>
+            <a class="btn btn-outline btn-sm mt-4" href="my-appointments.html">View details</a>
+          </div>`;
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load your dashboard.');
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

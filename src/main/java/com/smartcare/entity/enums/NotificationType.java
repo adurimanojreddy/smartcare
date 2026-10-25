@@ -1,0 +1,12 @@
+package com.smartcare.entity.enums;
+
+public enum NotificationType {
+    APPOINTMENT_CONFIRMATION,
+    APPOINTMENT_REMINDER,
+    APPOINTMENT_CANCELLED,
+    SLOT_RECOVERED,
+    QUEUE_UPDATE,
+    NO_SHOW_WARNING,
+    PRESCRIPTION_READY,
+    GENERAL
+}

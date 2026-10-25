@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Departments &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <section class="section">
+    <div class="container-app">
+      <h1>Departments</h1>
+      <p class="text-muted">Browse our specialties, or let SmartCare suggest one from your symptoms once you're logged in.</p>
+
+      <div id="departments-grid" class="panel-grid mt-6">
+        <p class="text-muted">Loading departments&hellip;</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="sc-footer-slot"></div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    async function loadDepartments() {
+      const grid = document.getElementById('departments-grid');
+      try {
+        const departments = await SmartCareAPI.getDepartments();
+        if (!departments.length) {
+          grid.innerHTML = '<div class="empty-state">No departments have been added yet.</div>';
+          return;
+        }
+        grid.innerHTML = departments.map(d => `
+          <div class="panel">
+            <h4>${SmartCareUI.escapeHtml(d.name)}</h4>
+            <p class="text-muted text-small">${SmartCareUI.escapeHtml(d.description || 'No description yet.')}</p>
+            <p class="text-small text-muted mb-0">${d.doctorCount} doctor${d.doctorCount === 1 ? '' : 's'}</p>
+            <a class="btn btn-outline btn-sm mt-4" href="doctors.html?departmentId=${d.id}">View doctors</a>
+          </div>
+        `).join('');
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load departments.');
+      }
+    }
+    loadDepartments();
+  </script>
+</body>
+</html>

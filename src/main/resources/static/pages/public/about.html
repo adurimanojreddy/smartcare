@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <section class="section" style="max-width: 720px;">
+    <h1>About SmartCare</h1>
+    <p class="text-muted" style="font-size:1.05rem;">
+      SmartCare is a portfolio/academic project built to demonstrate a
+      realistic hospital appointment and queue management platform &mdash;
+      not a production medical system, and not affiliated with any real
+      hospital.
+    </p>
+
+    <div class="disclaimer-banner">
+      The department and slot suggestions in this app are rule-based
+      appointment guidance only. They do not diagnose any medical condition.
+      Always consult a qualified doctor for medical advice.
+    </div>
+
+    <h3 class="mt-6">What it does</h3>
+    <p class="text-muted">
+      Patients can search for doctors, get a department suggestion from a
+      short symptom list, book a slot, pay online (via a mock gateway for
+      this demo), check in with a QR code, and track their live position in
+      the queue. Doctors manage their schedule, run consultations, and issue
+      digital prescriptions. Admins oversee doctors, departments, and
+      hospital-wide analytics.
+    </p>
+
+    <h3 class="mt-6">What it isn't</h3>
+    <p class="text-muted">
+      This project does not integrate with ABHA/ABDM or any real national
+      health record system, and its payment flow is a mock gateway with no
+      real transactions or stored card data.
+    </p>
+  </section>
+
+  <div id="sc-footer-slot"></div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+</body>
+</html>

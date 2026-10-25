@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Today's Appointments &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <h2>Today's appointments</h2>
+      <table class="sc-table mt-4">
+        <thead><tr><th>Time</th><th>Patient</th><th>Type</th><th>Status</th><th></th></tr></thead>
+        <tbody id="appointments-body"><tr><td colspan="5" class="text-muted">Loading&hellip;</td></tr></tbody>
+      </table>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_DOCTOR']);
+
+    function row(a) {
+      const canPrescribe = a.status === 'IN_PROGRESS' || a.status === 'COMPLETED';
+      return `
+        <tr>
+          <td>${SmartCareUI.formatTime(a.appointmentTime)}</td>
+          <td>${SmartCareUI.escapeHtml(a.familyMemberName || a.patientName)}</td>
+          <td>${a.consultationType === 'ONLINE' ? 'Online' : 'In-person'}</td>
+          <td><span class="badge ${SmartCareUI.statusBadgeClass(a.status)}">${a.status}</span></td>
+          <td>${canPrescribe ? `<a class="btn btn-outline btn-sm" href="live-queue.html">Manage in queue</a>` : ''}</td>
+        </tr>`;
+    }
+
+    async function load() {
+      try {
+        const doctor = await SmartCareAPI.getMyDoctorProfile();
+        const today = new Date().toISOString().split('T')[0];
+        const appointments = await SmartCareAPI.getAppointmentsForDoctor(doctor.id, today);
+        const body = document.getElementById('appointments-body');
+        body.innerHTML = appointments.length
+          ? appointments.sort((a, b) => a.appointmentTime.localeCompare(b.appointmentTime)).map(row).join('')
+          : '<tr><td colspan="5" class="text-muted">No appointments scheduled for today.</td></tr>';
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load today\u2019s appointments.');
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# Caddy obtains and renews a free HTTPS certificate automatically for
+# whatever domain is set in DOMAIN (see .env).
+{$DOMAIN} {
+    encode gzip
+    reverse_proxy app:8080
+}

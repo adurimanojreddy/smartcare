@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Queue &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main" style="max-width: 480px;">
+      <h2>Live queue</h2>
+      <p class="text-muted">Your position updates automatically every few seconds.</p>
+
+      <div id="queue-content">
+        <p class="text-muted">Loading&hellip;</p>
+      </div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_PATIENT']);
+
+    let appointmentId = new URLSearchParams(window.location.search).get('appointmentId');
+    let pollHandle = null;
+
+    function render(status, appointment) {
+      const el = document.getElementById('queue-content');
+      el.innerHTML = `
+        <div class="token-ticket">
+          <span class="token-label">${SmartCareUI.escapeHtml(appointment.departmentName)} &middot; Dr. ${SmartCareUI.escapeHtml(appointment.doctorName)}</span>
+          <span class="token-number">${status.yourToken}</span>
+          <div class="token-meta">
+            <span>Current token: ${status.currentToken ?? '—'}</span>
+            <span>${status.patientsAhead} ahead</span>
+          </div>
+        </div>
+        <p class="text-muted text-small mt-4">Estimated wait: ~${status.estimatedWaitingMinutes} minutes</p>
+        <span class="badge ${SmartCareUI.statusBadgeClass(status.status)}">${status.status}</span>`;
+    }
+
+    async function tick() {
+      try {
+        const status = await SmartCareAPI.getQueueStatus(appointmentId);
+        const appointment = await SmartCareAPI.getAppointment(appointmentId);
+        render(status, appointment);
+        if (['COMPLETED', 'NO_SHOW'].includes(status.status)) {
+          clearInterval(pollHandle);
+        }
+      } catch (err) {
+        clearInterval(pollHandle);
+        document.getElementById('queue-content').innerHTML =
+          '<div class="empty-state">No live queue position found. You may not be checked in yet.</div>';
+      }
+    }
+
+    async function init() {
+      if (!appointmentId) {
+        try {
+          const patient = await SmartCareAPI.getMyPatientProfile();
+          const appointments = await SmartCareAPI.getPatientAppointments(patient.id);
+          const checkedIn = appointments.find(a => a.status === 'CHECKED_IN' || a.status === 'IN_PROGRESS');
+          if (checkedIn) appointmentId = checkedIn.id;
+        } catch (err) { /* fall through to empty state */ }
+      }
+      if (!appointmentId) {
+        document.getElementById('queue-content').innerHTML =
+          '<div class="empty-state">You\'re not checked in anywhere right now.</div>';
+        return;
+      }
+      tick();
+      pollHandle = setInterval(tick, 8000);
+    }
+
+    init();
+  </script>
+</body>
+</html>

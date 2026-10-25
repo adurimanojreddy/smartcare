@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prescriptions &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    @media print {
+      #sc-navbar-slot, .dash-sidebar, .no-print { display: none !important; }
+      .dash-shell { display: block; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <h2>Prescriptions</h2>
+      <div id="prescriptions-list"></div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_PATIENT']);
+
+    function prescriptionPanel(p) {
+      const meds = (p.medicines || []).map(m => `
+        <tr>
+          <td>${SmartCareUI.escapeHtml(m.medicineName)}</td>
+          <td>${SmartCareUI.escapeHtml(m.dosage || '—')}</td>
+          <td>${SmartCareUI.escapeHtml(m.frequency || '—')}</td>
+          <td>${SmartCareUI.escapeHtml(m.duration || '—')}</td>
+        </tr>`).join('');
+      return `
+        <div class="panel mt-4">
+          <div class="flex-between no-print">
+            <h4 class="mb-0">Dr. ${SmartCareUI.escapeHtml(p.doctorName)}</h4>
+            <button class="btn btn-outline btn-sm" onclick="window.print()">Print</button>
+          </div>
+          <p class="text-small text-muted">${SmartCareUI.formatDate(p.createdAt ? p.createdAt.split('T')[0] : '')}</p>
+          ${p.diagnosisNotes ? `<p class="text-small">${SmartCareUI.escapeHtml(p.diagnosisNotes)}</p>` : ''}
+          <table class="sc-table">
+            <thead><tr><th>Medicine</th><th>Dosage</th><th>Frequency</th><th>Duration</th></tr></thead>
+            <tbody>${meds}</tbody>
+          </table>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const patient = await SmartCareAPI.getMyPatientProfile();
+        const prescriptions = await SmartCareAPI.getPrescriptionsForPatient(patient.id);
+        const el = document.getElementById('prescriptions-list');
+        el.innerHTML = prescriptions.length
+          ? prescriptions.map(prescriptionPanel).join('')
+          : '<div class="empty-state">No prescriptions yet.</div>';
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load prescriptions.');
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

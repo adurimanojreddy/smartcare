@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Queue &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <div class="dash-header">
+        <h2>Live queue</h2>
+        <button class="btn btn-primary" id="call-next-btn" type="button">Call next patient</button>
+      </div>
+
+      <div id="queue-list"></div>
+
+      <div id="prescription-modal" class="hidden panel panel-teal mt-6">
+        <h4>Write prescription</h4>
+        <input type="hidden" id="rx-appointment-id">
+        <div class="form-group">
+          <label for="rx-diagnosis">Diagnosis / consultation notes</label>
+          <textarea class="form-control" id="rx-diagnosis" rows="2"></textarea>
+        </div>
+        <div id="medicine-rows"></div>
+        <button class="btn btn-ghost btn-sm" type="button" id="add-medicine-row">+ Add medicine</button>
+        <div class="flex gap-3 mt-4">
+          <button class="btn btn-primary" type="button" id="save-rx-btn">Save prescription &amp; complete</button>
+          <button class="btn btn-ghost" type="button" id="cancel-rx-btn">Cancel</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_DOCTOR']);
+    let doctorId = null;
+
+    function medicineRowHtml() {
+      return `
+        <div class="flex gap-2 mt-2 medicine-row" style="flex-wrap:wrap;">
+          <input class="form-control" style="flex:2; min-width:140px;" placeholder="Medicine name" data-field="medicineName">
+          <input class="form-control" style="flex:1; min-width:100px;" placeholder="Dosage" data-field="dosage">
+          <input class="form-control" style="flex:1; min-width:100px;" placeholder="Frequency" data-field="frequency">
+          <input class="form-control" style="flex:1; min-width:100px;" placeholder="Duration" data-field="duration">
+        </div>`;
+    }
+    document.getElementById('add-medicine-row').addEventListener('click', () => {
+      document.getElementById('medicine-rows').insertAdjacentHTML('beforeend', medicineRowHtml());
+    });
+
+    function queueRow(q) {
+      const actions = [];
+      if (q.status === 'CALLED') {
+        actions.push(`<button class="btn btn-outline btn-sm" data-start="${q.appointmentId}">Start consultation</button>`);
+      }
+      if (q.status === 'IN_PROGRESS') {
+        actions.push(`<button class="btn btn-primary btn-sm" data-prescribe="${q.appointmentId}">Complete &amp; prescribe</button>`);
+      }
+      if (['WAITING', 'CALLED'].includes(q.status)) {
+        actions.push(`<button class="btn btn-ghost btn-sm" data-skip="${q.appointmentId}">Skip</button>`);
+        actions.push(`<button class="btn btn-ghost btn-sm" data-noshow="${q.appointmentId}">No-show</button>`);
+      }
+      return `
+        <div class="panel ${q.status === 'WAITING' ? 'panel-amber' : 'panel-quiet'} mt-4">
+          <div class="flex-between">
+            <div>
+              <strong>Token ${q.tokenNumber} &mdash; ${SmartCareUI.escapeHtml(q.patientName)}</strong>
+              <div class="text-small text-muted">${q.consultationType === 'ONLINE' ? 'Online' : 'In-person'} &middot; checked in ${new Date(q.checkedInAt).toLocaleTimeString()}</div>
+            </div>
+            <span class="badge ${SmartCareUI.statusBadgeClass(q.status)}">${q.status}</span>
+          </div>
+          <div class="flex gap-2 mt-3" style="flex-wrap:wrap;">${actions.join('')}</div>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const doctor = await SmartCareAPI.getMyDoctorProfile();
+        doctorId = doctor.id;
+        const queue = await SmartCareAPI.getDoctorQueue(doctorId);
+        const list = document.getElementById('queue-list');
+        list.innerHTML = queue.length
+          ? queue.map(queueRow).join('')
+          : '<div class="empty-state">No one is in the queue right now.</div>';
+        wireActions();
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load the queue.');
+      }
+    }
+
+    function wireActions() {
+      document.querySelectorAll('[data-start]').forEach(btn =>
+        btn.addEventListener('click', () => act(SmartCareAPI.startConsultation, btn.dataset.start)));
+      document.querySelectorAll('[data-skip]').forEach(btn =>
+        btn.addEventListener('click', () => act(SmartCareAPI.skipPatient, btn.dataset.skip)));
+      document.querySelectorAll('[data-noshow]').forEach(btn =>
+        btn.addEventListener('click', () => act(SmartCareAPI.markNoShow, btn.dataset.noshow)));
+      document.querySelectorAll('[data-prescribe]').forEach(btn =>
+        btn.addEventListener('click', () => openPrescriptionModal(btn.dataset.prescribe)));
+    }
+
+    async function act(fn, appointmentId) {
+      try {
+        await fn(appointmentId);
+        load();
+      } catch (err) {
+        SmartCareUI.handleError(err, 'That action failed.');
+      }
+    }
+
+    document.getElementById('call-next-btn').addEventListener('click', () => act(SmartCareAPI.callNext, doctorId));
+
+    function openPrescriptionModal(appointmentId) {
+      document.getElementById('rx-appointment-id').value = appointmentId;
+      document.getElementById('rx-diagnosis').value = '';
+      document.getElementById('medicine-rows').innerHTML = medicineRowHtml();
+      document.getElementById('prescription-modal').classList.remove('hidden');
+      document.getElementById('prescription-modal').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    document.getElementById('cancel-rx-btn').addEventListener('click', () => {
+      document.getElementById('prescription-modal').classList.add('hidden');
+    });
+
+    document.getElementById('save-rx-btn').addEventListener('click', async () => {
+      const appointmentId = document.getElementById('rx-appointment-id').value;
+      const medicines = Array.from(document.querySelectorAll('.medicine-row')).map(row => {
+        const get = (f) => row.querySelector(`[data-field="${f}"]`).value.trim();
+        return { medicineName: get('medicineName'), dosage: get('dosage'), frequency: get('frequency'), duration: get('duration') };
+      }).filter(m => m.medicineName);
+
+      if (!medicines.length) { SmartCareUI.toast('Add at least one medicine.', 'error'); return; }
+
+      try {
+        await SmartCareAPI.createPrescription({
+          appointmentId, diagnosisNotes: document.getElementById('rx-diagnosis').value.trim(), medicines,
+        });
+        await SmartCareAPI.completeConsultation(appointmentId);
+        SmartCareUI.toast('Prescription saved and consultation completed.', 'success');
+        document.getElementById('prescription-modal').classList.add('hidden');
+        load();
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not save the prescription.');
+      }
+    });
+
+    load();
+    setInterval(load, 15000);
+  </script>
+</body>
+</html>

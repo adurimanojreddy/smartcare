@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <h2>Weekly schedule</h2>
+      <p class="text-muted">Set the days and hours you see patients. SmartCare turns these into bookable slots.</p>
+
+      <form id="schedule-form" class="panel flex gap-3" style="flex-wrap:wrap; align-items:flex-end;" novalidate>
+        <div class="form-group mb-0">
+          <label for="day">Day</label>
+          <select class="form-control" id="day">
+            <option value="MONDAY">Monday</option>
+            <option value="TUESDAY">Tuesday</option>
+            <option value="WEDNESDAY">Wednesday</option>
+            <option value="THURSDAY">Thursday</option>
+            <option value="FRIDAY">Friday</option>
+            <option value="SATURDAY">Saturday</option>
+            <option value="SUNDAY">Sunday</option>
+          </select>
+        </div>
+        <div class="form-group mb-0">
+          <label for="start">Start time</label>
+          <input class="form-control" type="time" id="start" value="09:00">
+        </div>
+        <div class="form-group mb-0">
+          <label for="end">End time</label>
+          <input class="form-control" type="time" id="end" value="13:00">
+        </div>
+        <button class="btn btn-primary" type="submit">Add</button>
+      </form>
+
+      <table class="sc-table mt-4">
+        <thead><tr><th>Day</th><th>Hours</th><th></th></tr></thead>
+        <tbody id="schedule-body"><tr><td colspan="3" class="text-muted">Loading&hellip;</td></tr></tbody>
+      </table>
+
+      <div class="panel panel-amber mt-6">
+        <h4>Generate bookable slots</h4>
+        <p class="text-small text-muted">Turns the schedule above into concrete slots patients can book, for a date range.</p>
+        <div class="flex gap-3" style="flex-wrap:wrap; align-items:flex-end;">
+          <div class="form-group mb-0">
+            <label for="gen-from">From</label>
+            <input class="form-control" type="date" id="gen-from">
+          </div>
+          <div class="form-group mb-0">
+            <label for="gen-to">To</label>
+            <input class="form-control" type="date" id="gen-to">
+          </div>
+          <button class="btn btn-outline" type="button" id="generate-btn">Generate slots</button>
+        </div>
+        <p id="generate-result" class="text-small text-muted mt-2 mb-0"></p>
+      </div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_DOCTOR']);
+    let doctorId = null;
+
+    function row(s) {
+      return `
+        <tr>
+          <td>${s.dayOfWeek.charAt(0) + s.dayOfWeek.slice(1).toLowerCase()}</td>
+          <td>${SmartCareUI.formatTime(s.startTime)} &ndash; ${SmartCareUI.formatTime(s.endTime)}</td>
+          <td><button class="btn btn-ghost btn-sm" data-remove="${s.id}">Remove</button></td>
+        </tr>`;
+    }
+
+    async function load() {
+      try {
+        const doctor = await SmartCareAPI.getMyDoctorProfile();
+        doctorId = doctor.id;
+        const schedules = await SmartCareAPI.getSchedules(doctorId);
+        const body = document.getElementById('schedule-body');
+        body.innerHTML = schedules.length
+          ? schedules.map(row).join('')
+          : '<tr><td colspan="3" class="text-muted">No availability set yet.</td></tr>';
+        body.querySelectorAll('[data-remove]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            await SmartCareAPI.removeSchedule(doctorId, btn.dataset.remove);
+            load();
+          });
+        });
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load your schedule.');
+      }
+    }
+
+    document.getElementById('schedule-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await SmartCareAPI.addSchedule(doctorId, {
+          dayOfWeek: document.getElementById('day').value,
+          startTime: document.getElementById('start').value,
+          endTime: document.getElementById('end').value,
+        });
+        SmartCareUI.toast('Availability added.', 'success');
+        load();
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not add that availability window.');
+      }
+    });
+
+    document.getElementById('generate-btn').addEventListener('click', async () => {
+      const from = document.getElementById('gen-from').value;
+      const to = document.getElementById('gen-to').value;
+      if (!from || !to) { SmartCareUI.toast('Pick both dates.', 'error'); return; }
+      try {
+        const result = await SmartCareAPI.generateSlots(doctorId, from, to);
+        document.getElementById('generate-result').textContent = `${result.slotsCreated} new slot(s) created.`;
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not generate slots.');
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

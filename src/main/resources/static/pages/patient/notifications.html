@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notifications &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <h2>Notifications</h2>
+      <div id="notifications-list"></div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_PATIENT', 'ROLE_DOCTOR', 'ROLE_ADMIN']);
+
+    function panel(n) {
+      return `
+        <div class="panel ${n.read ? 'panel-quiet' : 'panel-amber'} mt-4">
+          <div class="flex-between">
+            <strong>${SmartCareUI.escapeHtml(n.title)}</strong>
+            ${!n.read ? `<button class="btn btn-ghost btn-sm" data-read="${n.id}">Mark read</button>` : ''}
+          </div>
+          <p class="text-small text-muted mb-0">${SmartCareUI.escapeHtml(n.message)}</p>
+          <p class="text-small text-muted mb-0">${new Date(n.createdAt).toLocaleString()}</p>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const notifications = await SmartCareAPI.getNotifications();
+        const el = document.getElementById('notifications-list');
+        el.innerHTML = notifications.length
+          ? notifications.map(panel).join('')
+          : '<div class="empty-state">No notifications yet.</div>';
+        el.querySelectorAll('[data-read]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            await SmartCareAPI.markNotificationRead(btn.dataset.read);
+            load();
+          });
+        });
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load notifications.');
+      }
+    }
+    load();
+  </script>
+</body>
+</html>

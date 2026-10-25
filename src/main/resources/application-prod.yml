@@ -1,0 +1,24 @@
+# Activated with SPRING_PROFILES_ACTIVE=prod. Overrides only what differs
+# from the dev defaults in application.yml; everything sensitive still
+# comes from environment variables.
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  devtools:
+    restart:
+      enabled: false
+
+server:
+  error:
+    include-stacktrace: never
+    include-binding-errors: never
+
+logging:
+  level:
+    root: INFO
+    com.smartcare: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.security: WARN

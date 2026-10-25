@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main" style="max-width: 560px;">
+      <h2>My profile</h2>
+      <form id="profile-form" novalidate>
+        <div class="form-group">
+          <label for="fullName">Full name</label>
+          <input class="form-control" id="fullName">
+        </div>
+        <div class="form-group">
+          <label for="specialization">Specialization</label>
+          <input class="form-control" id="specialization">
+        </div>
+        <div class="flex gap-3">
+          <div class="form-group" style="flex:1;">
+            <label for="qualification">Qualification</label>
+            <input class="form-control" id="qualification">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="experienceYears">Years of experience</label>
+            <input class="form-control" type="number" min="0" id="experienceYears">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="consultationFee">Consultation fee</label>
+          <input class="form-control" type="number" min="0" step="0.01" id="consultationFee">
+        </div>
+        <button class="btn btn-primary" type="submit">Save changes</button>
+      </form>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_DOCTOR']);
+    let doctorId = null;
+
+    async function load() {
+      try {
+        const doctor = await SmartCareAPI.getMyDoctorProfile();
+        doctorId = doctor.id;
+        document.getElementById('fullName').value = doctor.fullName || '';
+        document.getElementById('specialization').value = doctor.specialization || '';
+        document.getElementById('qualification').value = doctor.qualification || '';
+        document.getElementById('experienceYears').value = doctor.experienceYears || '';
+        document.getElementById('consultationFee').value = doctor.consultationFee || '';
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load your profile.');
+      }
+    }
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await SmartCareAPI.updateDoctor(doctorId, {
+          fullName: document.getElementById('fullName').value.trim(),
+          specialization: document.getElementById('specialization').value.trim(),
+          qualification: document.getElementById('qualification').value.trim(),
+          experienceYears: Number(document.getElementById('experienceYears').value) || null,
+          consultationFee: Number(document.getElementById('consultationFee').value) || null,
+        });
+        SmartCareUI.toast('Profile updated.', 'success');
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not save your profile.');
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

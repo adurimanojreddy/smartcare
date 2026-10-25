@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Family Members &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <div class="dash-header">
+        <h2>Family members</h2>
+        <button class="btn btn-primary" id="add-btn" type="button">Add family member</button>
+      </div>
+
+      <form id="add-form" class="panel hidden mb-4" novalidate>
+        <div class="flex gap-3" style="flex-wrap:wrap;">
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="fm-name">Full name</label>
+            <input class="form-control" id="fm-name" required>
+          </div>
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="fm-relationship">Relationship</label>
+            <select class="form-control" id="fm-relationship">
+              <option value="FATHER">Father</option>
+              <option value="MOTHER">Mother</option>
+              <option value="SPOUSE">Spouse</option>
+              <option value="SON">Son</option>
+              <option value="DAUGHTER">Daughter</option>
+              <option value="BROTHER">Brother</option>
+              <option value="SISTER">Sister</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:160px;">
+            <label for="fm-dob">Date of birth</label>
+            <input class="form-control" type="date" id="fm-dob">
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit">Save</button>
+      </form>
+
+      <div id="family-list" class="panel-grid"></div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_PATIENT']);
+
+    document.getElementById('add-btn').addEventListener('click', () => {
+      document.getElementById('add-form').classList.toggle('hidden');
+    });
+
+    function card(m) {
+      return `
+        <div class="panel">
+          <h4 class="mb-0">${SmartCareUI.escapeHtml(m.fullName)}</h4>
+          <p class="text-small text-muted">${m.relationship.charAt(0) + m.relationship.slice(1).toLowerCase()}${m.dateOfBirth ? ' &middot; born ' + SmartCareUI.formatDate(m.dateOfBirth) : ''}</p>
+          <div class="flex gap-2">
+            <a class="btn btn-outline btn-sm" href="book-appointment.html">Book for them</a>
+            <a class="btn btn-ghost btn-sm" href="medical-timeline.html?familyMemberId=${m.id}">Timeline</a>
+            <button class="btn btn-ghost btn-sm" data-delete="${m.id}">Remove</button>
+          </div>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const members = await SmartCareAPI.getFamilyMembers();
+        const list = document.getElementById('family-list');
+        list.innerHTML = members.length
+          ? members.map(card).join('')
+          : '<div class="empty-state">No family members added yet.</div>';
+        list.querySelectorAll('[data-delete]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('Remove this family member?')) return;
+            try {
+              await SmartCareAPI.deleteFamilyMember(btn.dataset.delete);
+              load();
+            } catch (err) { SmartCareUI.handleError(err, 'Could not remove.'); }
+          });
+        });
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load family members.');
+      }
+    }
+
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await SmartCareAPI.addFamilyMember({
+          fullName: document.getElementById('fm-name').value.trim(),
+          relationship: document.getElementById('fm-relationship').value,
+          dateOfBirth: document.getElementById('fm-dob').value || null,
+        });
+        document.getElementById('add-form').reset();
+        document.getElementById('add-form').classList.add('hidden');
+        SmartCareUI.toast('Family member added.', 'success');
+        load();
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not add family member.');
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>

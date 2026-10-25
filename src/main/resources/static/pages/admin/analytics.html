@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <div class="dash-header">
+        <h2>Analytics</h2>
+        <div class="flex gap-2">
+          <input class="form-control" type="date" id="from-date">
+          <input class="form-control" type="date" id="to-date">
+          <button class="btn btn-primary" id="load-btn" type="button">Update</button>
+        </div>
+      </div>
+
+      <div class="panel-grid" id="rate-grid"></div>
+
+      <div class="panel-grid mt-6">
+        <div class="panel">
+          <h4>Appointments per day</h4>
+          <canvas id="daily-chart" height="220"></canvas>
+        </div>
+        <div class="panel">
+          <h4>Most-booked departments</h4>
+          <canvas id="department-chart" height="220"></canvas>
+        </div>
+      </div>
+
+      <div class="panel mt-4">
+        <h4>Doctor utilization</h4>
+        <canvas id="doctor-chart" height="160"></canvas>
+      </div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_ADMIN']);
+    let charts = {};
+
+    function destroyCharts() { Object.values(charts).forEach(c => c && c.destroy()); charts = {}; }
+
+    function kpi(label, value, cls) {
+      return `<div class="panel ${cls || ''}"><h4 class="mb-0">${value}</h4><p class="text-small text-muted mb-0">${label}</p></div>`;
+    }
+
+    async function load() {
+      const from = document.getElementById('from-date').value;
+      const to = document.getElementById('to-date').value;
+      try {
+        const a = await SmartCareAPI.getAdminAnalytics(from, to);
+        document.getElementById('rate-grid').innerHTML = [
+          kpi('Cancellation rate', a.cancellationRatePercent + '%', 'panel-brick'),
+          kpi('No-show rate', a.noShowRatePercent + '%', 'panel-amber'),
+          kpi('Revenue in range', '$' + Number(a.totalRevenue || 0).toFixed(2), 'panel-green'),
+        ].join('');
+
+        destroyCharts();
+
+        charts.daily = new Chart(document.getElementById('daily-chart'), {
+          type: 'line',
+          data: {
+            labels: Object.keys(a.dailyAppointments || {}),
+            datasets: [{ label: 'Appointments', data: Object.values(a.dailyAppointments || {}), borderColor: '#0F766E', backgroundColor: '#E4F2F0', tension: 0.25 }],
+          },
+          options: { plugins: { legend: { display: false } } },
+        });
+
+        charts.department = new Chart(document.getElementById('department-chart'), {
+          type: 'doughnut',
+          data: {
+            labels: (a.mostBookedDepartments || []).map(d => d.departmentName),
+            datasets: [{ data: (a.mostBookedDepartments || []).map(d => d.appointmentCount), backgroundColor: ['#0F766E', '#E8871E', '#3F8F5F', '#C1443A', '#14213D', '#B9C4BD'] }],
+          },
+        });
+
+        charts.doctor = new Chart(document.getElementById('doctor-chart'), {
+          type: 'bar',
+          data: {
+            labels: (a.doctorUtilization || []).map(d => d.doctorName),
+            datasets: [{ label: 'Appointments', data: (a.doctorUtilization || []).map(d => d.appointmentCount), backgroundColor: '#0F766E' }],
+          },
+          options: { plugins: { legend: { display: false } } },
+        });
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load analytics.');
+      }
+    }
+
+    (function initDates() {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 29);
+      document.getElementById('to-date').value = to.toISOString().split('T')[0];
+      document.getElementById('from-date').value = from.toISOString().split('T')[0];
+    })();
+
+    document.getElementById('load-btn').addEventListener('click', load);
+    load();
+  </script>
+</body>
+</html>

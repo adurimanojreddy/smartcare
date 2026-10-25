@@ -1,0 +1,91 @@
+server:
+  # PaaS hosts (Render, Railway, Heroku-style) inject PORT.
+  port: ${PORT:8080}
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  application:
+    name: smartcare
+
+  # ===================== MySQL / JPA =====================
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3307/smartcare_db?useSSL=false&serverTimezone=UTC&createDatabaseIfNotExist=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      # 'update' for dev convenience. Switch to 'validate' once schema is
+      # stable and managed via migrations for a production-style setup.
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          time_zone: UTC
+    open-in-view: false
+    # Let Hibernate create/update the schema BEFORE data.sql runs against it.
+    defer-datasource-initialization: true
+
+  sql:
+    init:
+      # Runs src/main/resources/data.sql on every startup (Module: seed data
+      # for the admin account, departments, and symptom mappings). Errors
+      # from re-running inserts against existing unique rows on a restart
+      # are swallowed rather than crashing the app - see data.sql's header.
+      mode: always
+      continue-on-error: true
+
+  # ===================== Mail (for reminders / notifications) =====================
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  # ===================== Jackson =====================
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: UTC
+
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
+# ===================== JWT =====================
+smartcare:
+  jwt:
+    # Demo secret only - override via env var in real deployments.
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B59}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}       # 24 hours
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080,http://localhost:5500,http://127.0.0.1:5500}
+
+  # Business rule config (Module 24) - kept configurable rather than hardcoded
+  business:
+    appointment-duration-minutes: 15
+    cancellation-cutoff-hours: 2
+    reminder-hours-before: 24
+
+  queue:
+    default-avg-consultation-minutes: 10
+
+logging:
+  level:
+    com.smartcare: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG

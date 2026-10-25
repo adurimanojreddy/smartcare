@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check-In &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    #scan-video { width: 100%; max-width: 360px; border-radius: var(--radius-md); background: #000; display: none; }
+    #scan-canvas { display: none; }
+    .scan-frame { position: relative; display: inline-block; }
+    .scan-hint { font-size: 0.8rem; color: var(--ink-70); margin-top: var(--space-2); }
+  </style>
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <div class="dash-header">
+        <h2>Check-in</h2>
+      </div>
+
+      <div class="panel-grid">
+        <div class="panel panel-amber">
+          <h4>Scan or enter appointment code</h4>
+          <p class="text-small text-muted">
+            Works with a USB barcode/QR scanner (just click the field and scan - it types like a keyboard),
+            or use your device camera below, or type the code from a printed confirmation.
+          </p>
+          <form id="manual-checkin-form" class="flex gap-2" style="flex-wrap:wrap;" novalidate>
+            <input class="form-control" id="code-input" style="flex:1; min-width:200px;" placeholder="HSP-2026-000123" autofocus>
+            <button class="btn btn-primary" type="submit">Check in</button>
+          </form>
+
+          <div class="mt-4">
+            <button class="btn btn-outline btn-sm" type="button" id="toggle-camera-btn">Use camera to scan QR</button>
+            <div class="scan-frame mt-2">
+              <video id="scan-video" playsinline muted></video>
+              <canvas id="scan-canvas"></canvas>
+            </div>
+            <p class="scan-hint hidden" id="scan-hint">Point the camera at the patient's QR code.</p>
+          </div>
+
+          <div id="checkin-result" class="mt-4"></div>
+        </div>
+
+        <div class="panel">
+          <h4>Appointments ready to check in</h4>
+          <div class="flex gap-2 mt-2" style="flex-wrap:wrap;">
+            <select class="form-control" id="doctor-select" style="min-width:200px;"></select>
+            <button class="btn btn-outline btn-sm" id="load-btn" type="button">Load</button>
+          </div>
+          <p class="text-small text-muted mt-2 mb-0" id="ready-list-hint"></p>
+          <div id="ready-list" class="mt-2"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_ADMIN']);
+
+    // ---- Manual / scanner-as-keyboard code entry ----
+    document.getElementById('manual-checkin-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('code-input').value.trim();
+      if (!code) return;
+      await performCheckIn(code);
+      document.getElementById('code-input').value = '';
+    });
+
+    async function performCheckIn(code) {
+      try {
+        const result = await SmartCareAPI.checkInByCode(code);
+        document.getElementById('checkin-result').innerHTML = `
+          <div class="panel panel-green">
+            <h4 class="mb-0">Checked in \u2014 Token ${result.tokenNumber}</h4>
+            <p class="text-small text-muted mb-0">Current token: ${result.currentToken ?? '\u2014'} &middot; ${result.patientsAhead} patient(s) ahead &middot; ~${result.estimatedWaitingMinutes} min wait</p>
+          </div>`;
+        SmartCareUI.toast('Checked in successfully.', 'success');
+        loadReadyList();
+      } catch (err) {
+        document.getElementById('checkin-result').innerHTML = '';
+        SmartCareUI.handleError(err, 'Could not check in this appointment.');
+      }
+    }
+
+    // ---- Camera-based QR scanning ----
+    let stream = null;
+    let scanning = false;
+
+    document.getElementById('toggle-camera-btn').addEventListener('click', async () => {
+      const video = document.getElementById('scan-video');
+      const hint = document.getElementById('scan-hint');
+      const btn = document.getElementById('toggle-camera-btn');
+
+      if (scanning) {
+        stopCamera();
+        return;
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        hint.classList.remove('hidden');
+        await video.play();
+        scanning = true;
+        btn.textContent = 'Stop camera';
+        requestAnimationFrame(scanFrame);
+      } catch (err) {
+        SmartCareUI.toast('Could not access the camera. You can still type the code above.', 'error');
+      }
+    });
+
+    function stopCamera() {
+      scanning = false;
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      document.getElementById('scan-video').style.display = 'none';
+      document.getElementById('scan-hint').classList.add('hidden');
+      document.getElementById('toggle-camera-btn').textContent = 'Use camera to scan QR';
+    }
+
+    function scanFrame() {
+      if (!scanning) return;
+      const video = document.getElementById('scan-video');
+      const canvas = document.getElementById('scan-canvas');
+
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code && code.data) {
+          stopCamera();
+          performCheckIn(code.data.trim());
+          return;
+        }
+      }
+      requestAnimationFrame(scanFrame);
+    }
+
+    // ---- Doctor selector + today's appointments awaiting check-in ----
+    async function loadDoctorOptions() {
+      try {
+        const doctors = await SmartCareAPI.getDoctors();
+        document.getElementById('doctor-select').innerHTML =
+          doctors.map(d => `<option value="${d.id}">Dr. ${SmartCareUI.escapeHtml(d.fullName)}</option>`).join('');
+        if (doctors.length) loadReadyList();
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load doctors.');
+      }
+    }
+
+    function readyRow(a) {
+      return `
+        <div class="panel panel-quiet mt-2">
+          <div class="flex-between">
+            <div>
+              <strong>${SmartCareUI.escapeHtml(a.familyMemberName || a.patientName)}</strong>
+              <div class="text-small text-muted">${SmartCareUI.formatTime(a.appointmentTime)} &middot; ${SmartCareUI.escapeHtml(a.appointmentCode)}</div>
+            </div>
+            <button class="btn btn-outline btn-sm" data-checkin-id="${a.id}">Check in</button>
+          </div>
+        </div>`;
+    }
+
+    async function loadReadyList() {
+      const doctorId = document.getElementById('doctor-select').value;
+      if (!doctorId) return;
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const appointments = await SmartCareAPI.getAppointmentsForDoctor(doctorId, today);
+        const ready = appointments.filter(a => a.status === 'BOOKED' || a.status === 'CONFIRMED');
+
+        const list = document.getElementById('ready-list');
+        const hint = document.getElementById('ready-list-hint');
+        hint.textContent = ready.length ? '' : 'Nobody is waiting to check in for this doctor today.';
+        list.innerHTML = ready
+          .sort((a, b) => a.appointmentTime.localeCompare(b.appointmentTime))
+          .map(readyRow).join('');
+
+        list.querySelectorAll('[data-checkin-id]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            try {
+              const result = await SmartCareAPI.checkInById(btn.dataset.checkinId);
+              SmartCareUI.toast(`Checked in \u2014 token ${result.tokenNumber}.`, 'success');
+              loadReadyList();
+            } catch (err) {
+              SmartCareUI.handleError(err, 'Could not check in this appointment.');
+            }
+          });
+        });
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load appointments for this doctor.');
+      }
+    }
+
+    document.getElementById('load-btn').addEventListener('click', loadReadyList);
+    loadDoctorOptions();
+    window.addEventListener('beforeunload', stopCamera);
+  </script>
+</body>
+</html>

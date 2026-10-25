@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Appointments &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <h2>Appointments</h2>
+      <p class="text-muted">Look up a doctor's schedule for any date.</p>
+
+      <div class="flex gap-3 mt-4" style="flex-wrap:wrap; align-items:flex-end;">
+        <div class="form-group mb-0" style="min-width:220px;">
+          <label for="doctor-select">Doctor</label>
+          <select class="form-control" id="doctor-select"></select>
+        </div>
+        <div class="form-group mb-0">
+          <label for="date-select">Date</label>
+          <input class="form-control" type="date" id="date-select">
+        </div>
+        <button class="btn btn-primary" id="search-btn" type="button">Show appointments</button>
+      </div>
+
+      <table class="sc-table mt-6">
+        <thead><tr><th>Time</th><th>Patient</th><th>Type</th><th>Status</th><th>Payment</th></tr></thead>
+        <tbody id="appointments-body"><tr><td colspan="5" class="text-muted">Choose a doctor and date.</td></tr></tbody>
+      </table>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_ADMIN']);
+
+    async function loadDoctorOptions() {
+      try {
+        const doctors = await SmartCareAPI.getDoctors();
+        document.getElementById('doctor-select').innerHTML =
+          doctors.map(d => `<option value="${d.id}">Dr. ${SmartCareUI.escapeHtml(d.fullName)}</option>`).join('');
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load doctors.');
+      }
+    }
+
+    function row(a) {
+      return `
+        <tr>
+          <td>${SmartCareUI.formatTime(a.appointmentTime)}</td>
+          <td>${SmartCareUI.escapeHtml(a.familyMemberName || a.patientName)}</td>
+          <td>${a.consultationType === 'ONLINE' ? 'Online' : 'In-person'}</td>
+          <td><span class="badge ${SmartCareUI.statusBadgeClass(a.status)}">${a.status}</span></td>
+          <td><span class="badge ${SmartCareUI.statusBadgeClass(a.paymentStatus)}">${a.paymentStatus}</span></td>
+        </tr>`;
+    }
+
+    document.getElementById('search-btn').addEventListener('click', async () => {
+      const doctorId = document.getElementById('doctor-select').value;
+      const date = document.getElementById('date-select').value;
+      if (!doctorId || !date) { SmartCareUI.toast('Pick a doctor and date.', 'error'); return; }
+      try {
+        const appointments = await SmartCareAPI.getAppointmentsForDoctor(doctorId, date);
+        const body = document.getElementById('appointments-body');
+        body.innerHTML = appointments.length
+          ? appointments.sort((a, b) => a.appointmentTime.localeCompare(b.appointmentTime)).map(row).join('')
+          : '<tr><td colspan="5" class="text-muted">No appointments for that day.</td></tr>';
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load appointments.');
+      }
+    });
+
+    loadDoctorOptions();
+  </script>
+</body>
+</html>

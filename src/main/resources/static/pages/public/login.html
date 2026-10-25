@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log in &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <section class="section" style="max-width: 440px; margin: 0 auto;">
+    <h1 style="font-size: 2rem;">Log in</h1>
+    <p class="text-muted">Access your patient, doctor, or admin dashboard.</p>
+
+    <form id="login-form" novalidate>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input class="form-control" type="email" id="email" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input class="form-control" type="password" id="password" required>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Log in</button>
+    </form>
+
+    <p class="text-small text-muted mt-4">
+      New to SmartCare? <a href="register.html">Create a patient account</a>.
+    </p>
+  </section>
+
+  <div id="sc-footer-slot"></div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      try {
+        const res = await SmartCareAPI.login({ email, password });
+        SmartCareAPI.setSession(res);
+        const dest = res.role === 'ROLE_PATIENT' ? '../patient/dashboard.html'
+          : res.role === 'ROLE_DOCTOR' ? '../doctor/dashboard.html'
+          : '../admin/dashboard.html';
+        window.location.href = dest;
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Invalid email or password.');
+      }
+    });
+  </script>
+</body>
+</html>

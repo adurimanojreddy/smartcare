@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create an account &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <section class="section" style="max-width: 520px; margin: 0 auto;">
+    <h1 style="font-size: 2rem;">Create your patient account</h1>
+    <p class="text-muted">Doctor and admin accounts are created by hospital staff.</p>
+
+    <form id="register-form" novalidate>
+      <div class="form-group">
+        <label for="fullName">Full name</label>
+        <input class="form-control" id="fullName" required>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input class="form-control" type="email" id="email" required>
+      </div>
+      <div class="form-group">
+        <label for="phone">Phone</label>
+        <input class="form-control" id="phone">
+      </div>
+      <div class="form-group">
+        <label for="dateOfBirth">Date of birth</label>
+        <input class="form-control" type="date" id="dateOfBirth">
+      </div>
+      <div class="form-group">
+        <label for="gender">Gender</label>
+        <select class="form-control" id="gender">
+          <option value="">Prefer not to say</option>
+          <option value="MALE">Male</option>
+          <option value="FEMALE">Female</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input class="form-control" type="password" id="password" required minlength="8">
+        <p class="form-hint">At least 8 characters, with a letter and a number.</p>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit">Create account</button>
+    </form>
+
+    <p class="text-small text-muted mt-4">
+      Already registered? <a href="login.html">Log in</a>.
+    </p>
+  </section>
+
+  <div id="sc-footer-slot"></div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        fullName: document.getElementById('fullName').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        dateOfBirth: document.getElementById('dateOfBirth').value || null,
+        gender: document.getElementById('gender').value || null,
+        password: document.getElementById('password').value,
+      };
+      try {
+        const res = await SmartCareAPI.register(payload);
+        SmartCareAPI.setSession(res);
+        SmartCareUI.toast('Account created. Welcome to SmartCare!', 'success');
+        window.location.href = '../patient/dashboard.html';
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not create your account.');
+      }
+    });
+  </script>
+</body>
+</html>

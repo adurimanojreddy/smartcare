@@ -1,0 +1,252 @@
+{
+  "info": {
+    "name": "SmartCare API",
+    "description": "Core request flow: register a patient, log in as admin, create a department and doctor, book an appointment, check in, and manage the queue. Set {{baseUrl}} to http://localhost:8080 and run requests top to bottom - each one saves variables the next request needs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "patientToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "departmentId", "value": "" },
+    { "key": "doctorId", "value": "" },
+    { "key": "slotId", "value": "" },
+    { "key": "appointmentId", "value": "" },
+    { "key": "appointmentCode", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Register patient",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Asha Rao\",\n  \"email\": \"asha.rao@example.com\",\n  \"password\": \"Password123\",\n  \"phone\": \"9998887777\",\n  \"dateOfBirth\": \"1994-05-10\",\n  \"gender\": \"FEMALE\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('patientToken', body.accessToken);",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Admin login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@smartcare.local\",\n  \"password\": \"Admin@12345\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('adminToken', body.accessToken);",
+              "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Create department (admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{baseUrl}}/api/departments",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Dermatology\",\n  \"description\": \"Skin, hair, and nail conditions\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('departmentId', body.id);",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Create doctor (admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{baseUrl}}/api/doctors",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Kumar\",\n  \"email\": \"dr.kumar@smartcare.local\",\n  \"temporaryPassword\": \"Doctor@12345\",\n  \"specialization\": \"Dermatology\",\n  \"departmentId\": {{departmentId}},\n  \"qualification\": \"MD\",\n  \"experienceYears\": 8,\n  \"consultationFee\": 0,\n  \"consultationDurationMinutes\": 15\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('doctorId', body.id);",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Add doctor schedule (uses doctor's own login in practice; shown here via admin for brevity)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+        ],
+        "url": "{{baseUrl}}/api/doctors/{{doctorId}}/schedules",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dayOfWeek\": \"MONDAY\",\n  \"startTime\": \"09:00:00\",\n  \"endTime\": \"13:00:00\"\n}"
+        }
+      }
+    },
+    {
+      "name": "6. Generate slots (admin)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": "{{baseUrl}}/api/doctors/{{doctorId}}/slots/generate?from=2026-09-14&to=2026-09-20"
+      }
+    },
+    {
+      "name": "7. Get available slots",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+        "url": "{{baseUrl}}/api/doctors/{{doctorId}}/slots?date=2026-09-14"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body.length) { pm.collectionVariables.set('slotId', body[0].id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Book appointment (patient)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{patientToken}}" }
+        ],
+        "url": "{{baseUrl}}/api/appointments",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"doctorId\": {{doctorId}},\n  \"slotId\": {{slotId}},\n  \"consultationType\": \"IN_PERSON\",\n  \"notifyOnEarlierSlot\": true\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set('appointmentId', body.id);",
+              "pm.collectionVariables.set('appointmentCode', body.appointmentCode);",
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "pm.test('Has a QR code', () => pm.expect(body.qrCodeImageBase64).to.exist);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Attempt double-booking the same slot (expect 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{patientToken}}" }
+        ],
+        "url": "{{baseUrl}}/api/appointments",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"doctorId\": {{doctorId}},\n  \"slotId\": {{slotId}},\n  \"consultationType\": \"IN_PERSON\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 409 Conflict', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Check in by appointment code (admin/doctor scans QR)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": "{{baseUrl}}/api/appointments/qr-check-in/{{appointmentCode}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Has a token number', () => pm.expect(body.tokenNumber).to.exist);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Get my queue status (patient)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{patientToken}}" }],
+        "url": "{{baseUrl}}/api/queue/appointment/{{appointmentId}}/status"
+      }
+    },
+    {
+      "name": "12. Admin dashboard",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": "{{baseUrl}}/api/admin/dashboard"
+      }
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartCare &mdash; See a doctor without the waiting room</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <header class="section" style="padding-top: var(--space-7);">
+    <div class="container-app" style="display:grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--space-8); align-items:center;">
+      <div>
+        <h1>See a doctor without<br>the waiting room.</h1>
+        <p class="text-muted" style="font-size:1.1rem;">
+          SmartCare gets you to the right department, into the right slot, and
+          through check-in with a token you can watch move &mdash; from your phone,
+          before you ever sit down in a waiting area.
+        </p>
+        <div class="flex gap-3 mt-4">
+          <a class="btn btn-primary" href="pages/public/register.html">Book an appointment</a>
+          <a class="btn btn-outline" href="pages/public/doctors.html">Browse doctors</a>
+        </div>
+        <p class="text-small text-muted mt-6">
+          A portfolio/academic project. Department suggestions are rule-based
+          guidance, not a medical diagnosis &mdash; see
+          <a href="pages/public/about.html">About</a> for details.
+        </p>
+      </div>
+
+      <div>
+        <div class="token-ticket">
+          <span class="token-label">Dermatology &middot; Dr. Kumar</span>
+          <span class="token-number">18</span>
+          <div class="token-meta">
+            <span>Current token: 12</span>
+            <span>~35 min wait</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="section-tight" style="background: var(--paper-raised); border-top:1px solid var(--line); border-bottom:1px solid var(--line);">
+    <div class="container-app panel-grid">
+      <div class="panel panel-quiet">
+        <h4>Tell us what's wrong</h4>
+        <p class="text-muted text-small mb-0">Enter your symptoms and we'll point you to the right department &mdash; not a diagnosis, just direction.</p>
+      </div>
+      <div class="panel panel-quiet">
+        <h4>Pick a slot that fits</h4>
+        <p class="text-muted text-small mb-0">We recommend the closest opening to your preferred time, with a few alternatives.</p>
+      </div>
+      <div class="panel panel-quiet">
+        <h4>Check in with a QR code</h4>
+        <p class="text-muted text-small mb-0">Skip the front desk line. Scan in, get your token, and watch your position update live.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container-app">
+      <h2>Built around the parts that actually cause stress</h2>
+      <p class="text-muted">Not knowing which department to see, not knowing how long you'll wait, and not knowing if your slot is still yours. SmartCare answers all three before you leave the house.</p>
+
+      <div class="panel-grid mt-6">
+        <div class="panel">
+          <h4>Family accounts</h4>
+          <p class="text-muted text-small mb-0">Book and track appointments for parents, kids, or a partner from one login, with separate medical histories for each.</p>
+        </div>
+        <div class="panel panel-amber">
+          <h4>Live queue position</h4>
+          <p class="text-muted text-small mb-0">See your token number, the current token, and an estimated wait &mdash; updated automatically while you sit somewhere more comfortable.</p>
+        </div>
+        <div class="panel panel-green">
+          <h4>Digital prescriptions</h4>
+          <p class="text-muted text-small mb-0">Every prescription and lab request lands on your medical timeline, ready to view or print.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="sc-footer-slot"></div>
+
+  <script>window.SC_BASE = '';</script>
+  <script src="js/api.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/layout.js"></script>
+</body>
+</html>

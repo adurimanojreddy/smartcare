@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book an Appointment &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main" style="max-width: 760px;">
+      <h2>Book an appointment</h2>
+
+      <ul class="stepper">
+        <li id="step-tab-1" class="active">1. Doctor</li>
+        <li id="step-tab-2">2. Date &amp; slot</li>
+        <li id="step-tab-3">3. Details</li>
+        <li id="step-tab-4">4. Confirm</li>
+      </ul>
+
+      <!-- Step 1: doctor -->
+      <section id="step-1" class="panel">
+        <h4>Choose a doctor</h4>
+        <div id="doctor-search-area">
+          <input class="form-control" id="doctor-search-input" placeholder="Search by name or specialization">
+          <div id="doctor-results" class="mt-4"></div>
+        </div>
+        <div id="doctor-chosen" class="hidden mt-4"></div>
+      </section>
+
+      <!-- Step 2: date & slot -->
+      <section id="step-2" class="panel hidden">
+        <h4>Pick a date &amp; time</h4>
+        <div class="form-group">
+          <label for="preferred-date">Date</label>
+          <input class="form-control" type="date" id="preferred-date">
+        </div>
+        <div class="flex gap-3">
+          <div class="form-group" style="flex:1;">
+            <label for="preferred-start">Preferred from (optional)</label>
+            <input class="form-control" type="time" id="preferred-start">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="preferred-end">Preferred to (optional)</label>
+            <input class="form-control" type="time" id="preferred-end">
+          </div>
+        </div>
+        <button class="btn btn-outline" type="button" id="find-slots-btn">Find slots</button>
+        <div id="slot-results" class="mt-4"></div>
+        <div class="flex gap-3 mt-4">
+          <button class="btn btn-ghost" type="button" onclick="goToStep(1)">Back</button>
+        </div>
+      </section>
+
+      <!-- Step 3: details -->
+      <section id="step-3" class="panel hidden">
+        <h4>A few more details</h4>
+        <div class="form-group">
+          <label for="appointment-for">Appointment for</label>
+          <select class="form-control" id="appointment-for">
+            <option value="">Myself</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="consultation-type">Consultation type</label>
+          <select class="form-control" id="consultation-type">
+            <option value="IN_PERSON">In-person</option>
+            <option value="ONLINE">Online</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="flex gap-2" style="font-weight:normal;">
+            <input type="checkbox" id="notify-earlier"> Notify me if an earlier slot opens up
+          </label>
+        </div>
+        <div class="flex gap-3">
+          <button class="btn btn-ghost" type="button" onclick="goToStep(2)">Back</button>
+          <button class="btn btn-primary" type="button" id="confirm-details-btn">Continue</button>
+        </div>
+      </section>
+
+      <!-- Step 4: confirm / result -->
+      <section id="step-4" class="panel hidden">
+        <div id="confirm-summary"></div>
+        <button class="btn btn-primary mt-4" type="button" id="book-btn">Confirm booking</button>
+        <div id="booking-result" class="mt-4"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_PATIENT']);
+
+    const state = { doctor: null, slot: null, familyMemberId: null, consultationType: 'IN_PERSON', notifyOnEarlierSlot: false };
+
+    function goToStep(n) {
+      for (let i = 1; i <= 4; i++) {
+        document.getElementById(`step-${i}`).classList.toggle('hidden', i !== n);
+        document.getElementById(`step-tab-${i}`).classList.toggle('active', i === n);
+        document.getElementById(`step-tab-${i}`).classList.toggle('done', i < n);
+      }
+    }
+
+    function renderDoctorResults(doctors) {
+      const el = document.getElementById('doctor-results');
+      if (!doctors.length) { el.innerHTML = '<p class="text-muted text-small">No matches.</p>'; return; }
+      el.innerHTML = doctors.map(d => `
+        <div class="panel panel-quiet mt-2" style="cursor:pointer;" data-id="${d.id}">
+          <strong>Dr. ${SmartCareUI.escapeHtml(d.fullName)}</strong>
+          <div class="text-small text-muted">${SmartCareUI.escapeHtml(d.specialization)} &middot; ${SmartCareUI.escapeHtml(d.departmentName || '')}</div>
+        </div>`).join('');
+      el.querySelectorAll('[data-id]').forEach(node => {
+        node.addEventListener('click', () => selectDoctor(doctors.find(d => String(d.id) === node.dataset.id)));
+      });
+    }
+
+    function selectDoctor(doctor) {
+      state.doctor = doctor;
+      document.getElementById('doctor-search-area').classList.add('hidden');
+      const chosen = document.getElementById('doctor-chosen');
+      chosen.classList.remove('hidden');
+      chosen.innerHTML = `
+        <div class="panel panel-teal">
+          <strong>Dr. ${SmartCareUI.escapeHtml(doctor.fullName)}</strong>
+          <div class="text-small text-muted">${SmartCareUI.escapeHtml(doctor.specialization)} &middot; ${SmartCareUI.escapeHtml(doctor.departmentName || '')}</div>
+          <button class="btn btn-ghost btn-sm mt-2" type="button" id="change-doctor-btn">Change doctor</button>
+        </div>`;
+      document.getElementById('change-doctor-btn').addEventListener('click', () => {
+        state.doctor = null;
+        document.getElementById('doctor-search-area').classList.remove('hidden');
+        chosen.classList.add('hidden');
+      });
+      goToStep(2);
+    }
+
+    document.getElementById('doctor-search-input').addEventListener('input', async (e) => {
+      const q = e.target.value.trim();
+      if (q.length < 2) { document.getElementById('doctor-results').innerHTML = ''; return; }
+      try {
+        const doctors = await SmartCareAPI.searchDoctors({ name: q });
+        renderDoctorResults(doctors);
+      } catch (err) { /* silent while typing */ }
+    });
+
+    document.getElementById('find-slots-btn').addEventListener('click', async () => {
+      const date = document.getElementById('preferred-date').value;
+      if (!date || !state.doctor) { SmartCareUI.toast('Pick a doctor and a date first.', 'error'); return; }
+      const start = document.getElementById('preferred-start').value;
+      const end = document.getElementById('preferred-end').value;
+      try {
+        const rec = await SmartCareAPI.recommendSlots({
+          doctorId: state.doctor.id, preferredDate: date,
+          preferredStartTime: start || undefined, preferredEndTime: end || undefined,
+        });
+        const results = document.getElementById('slot-results');
+        if (!rec.recommendedSlot) {
+          results.innerHTML = '<div class="empty-state">No available slots on that date. Try another day.</div>';
+          return;
+        }
+        const slots = [rec.recommendedSlot, ...(rec.alternativeSlots || [])];
+        results.innerHTML = `
+          <p class="text-small text-muted">Recommended slot is starred.</p>
+          <div class="panel-grid">
+            ${slots.map((s, i) => `
+              <div class="panel ${i === 0 ? 'panel-amber' : 'panel-quiet'}" style="cursor:pointer;" data-slot-id="${s.id}">
+                ${i === 0 ? '&#9733; ' : ''}${SmartCareUI.formatTime(s.startTime)} &ndash; ${SmartCareUI.formatTime(s.endTime)}
+              </div>`).join('')}
+          </div>`;
+        results.querySelectorAll('[data-slot-id]').forEach(node => {
+          node.addEventListener('click', () => {
+            state.slot = slots.find(s => String(s.id) === node.dataset.slotId);
+            goToStep(3);
+          });
+        });
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not find slots.');
+      }
+    });
+
+    async function loadFamilyMembers() {
+      try {
+        const members = await SmartCareAPI.getFamilyMembers();
+        const select = document.getElementById('appointment-for');
+        members.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id;
+          opt.textContent = `${m.fullName} (${m.relationship.toLowerCase()})`;
+          select.appendChild(opt);
+        });
+      } catch (err) { /* non-fatal */ }
+    }
+    loadFamilyMembers();
+
+    document.getElementById('confirm-details-btn').addEventListener('click', () => {
+      state.familyMemberId = document.getElementById('appointment-for').value || null;
+      state.consultationType = document.getElementById('consultation-type').value;
+      state.notifyOnEarlierSlot = document.getElementById('notify-earlier').checked;
+
+      document.getElementById('confirm-summary').innerHTML = `
+        <h4>Review your appointment</h4>
+        <p class="mb-0"><strong>Doctor:</strong> Dr. ${SmartCareUI.escapeHtml(state.doctor.fullName)}</p>
+        <p class="mb-0"><strong>When:</strong> ${SmartCareUI.formatDate(document.getElementById('preferred-date').value)} at ${SmartCareUI.formatTime(state.slot.startTime)}</p>
+        <p class="mb-0"><strong>Type:</strong> ${state.consultationType === 'ONLINE' ? 'Online' : 'In-person'}</p>
+        <p><strong>For:</strong> ${state.familyMemberId ? document.getElementById('appointment-for').selectedOptions[0].textContent : 'Myself'}</p>`;
+      goToStep(4);
+    });
+
+    document.getElementById('book-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('book-btn');
+      btn.disabled = true;
+      try {
+        const appointment = await SmartCareAPI.bookAppointment({
+          doctorId: state.doctor.id,
+          slotId: state.slot.id,
+          familyMemberId: state.familyMemberId || undefined,
+          consultationType: state.consultationType,
+          notifyOnEarlierSlot: state.notifyOnEarlierSlot,
+        });
+
+        let paymentHtml = '';
+        if (appointment.paymentStatus === 'PENDING') {
+          paymentHtml = `<button class="btn btn-primary mt-4" id="pay-btn">Pay now (mock)</button>`;
+        }
+
+        document.getElementById('booking-result').innerHTML = `
+          <div class="panel panel-green">
+            <h4>Booked! Confirmation code ${SmartCareUI.escapeHtml(appointment.appointmentCode)}</h4>
+            <p class="text-small text-muted">Show this QR code at the hospital to check in.</p>
+            <img src="data:image/png;base64,${appointment.qrCodeImageBase64}" alt="Appointment QR code" width="160" height="160">
+            ${paymentHtml}
+            <div class="mt-4"><a class="btn btn-outline btn-sm" href="my-appointments.html">Go to my appointments</a></div>
+          </div>`;
+
+        if (appointment.paymentStatus === 'PENDING') {
+          document.getElementById('pay-btn').addEventListener('click', async () => {
+            try {
+              const payment = await SmartCareAPI.createPayment({ appointmentId: appointment.id, method: 'MOCK_GATEWAY' });
+              await SmartCareAPI.processPayment(payment.id);
+              SmartCareUI.toast('Payment successful. Appointment confirmed.', 'success');
+              document.getElementById('pay-btn').remove();
+            } catch (err) {
+              SmartCareUI.handleError(err, 'Payment failed.');
+            }
+          });
+        }
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not book this appointment.');
+        btn.disabled = false;
+      }
+    });
+
+    // Pre-select doctor if arrived via ?doctorId=
+    (async function initFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const doctorId = params.get('doctorId');
+      if (doctorId) {
+        try {
+          const doctor = await SmartCareAPI.getDoctor(doctorId);
+          selectDoctor(doctor);
+        } catch (err) { /* fall back to search */ }
+      }
+    })();
+  </script>
+</body>
+</html>

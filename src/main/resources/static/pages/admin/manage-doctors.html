@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Doctors &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <div class="dash-header">
+        <h2>Doctors</h2>
+        <button class="btn btn-primary" id="add-btn" type="button">Add doctor</button>
+      </div>
+
+      <form id="add-form" class="panel hidden mb-4" novalidate>
+        <div class="flex gap-3" style="flex-wrap:wrap;">
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="doc-name">Full name</label>
+            <input class="form-control" id="doc-name" required>
+          </div>
+          <div class="form-group" style="flex:1; min-width:200px;">
+            <label for="doc-email">Email</label>
+            <input class="form-control" type="email" id="doc-email" required>
+          </div>
+          <div class="form-group" style="flex:1; min-width:160px;">
+            <label for="doc-password">Temporary password</label>
+            <input class="form-control" id="doc-password" required minlength="8">
+          </div>
+        </div>
+        <div class="flex gap-3" style="flex-wrap:wrap;">
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="doc-specialization">Specialization</label>
+            <input class="form-control" id="doc-specialization" required>
+          </div>
+          <div class="form-group" style="flex:1; min-width:180px;">
+            <label for="doc-department">Department</label>
+            <select class="form-control" id="doc-department" required></select>
+          </div>
+          <div class="form-group" style="flex:1; min-width:140px;">
+            <label for="doc-fee">Consultation fee</label>
+            <input class="form-control" type="number" min="0" step="0.01" id="doc-fee" required>
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit">Create doctor account</button>
+      </form>
+
+      <table class="sc-table">
+        <thead><tr><th>Name</th><th>Specialization</th><th>Department</th><th>Status</th><th></th></tr></thead>
+        <tbody id="doctors-body"><tr><td colspan="5" class="text-muted">Loading&hellip;</td></tr></tbody>
+      </table>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    SmartCareUI.requireAuth(['ROLE_ADMIN']);
+
+    document.getElementById('add-btn').addEventListener('click', () => {
+      document.getElementById('add-form').classList.toggle('hidden');
+    });
+
+    function row(d) {
+      const deactivated = d.status === 'INACTIVE';
+      return `
+        <tr>
+          <td>Dr. ${SmartCareUI.escapeHtml(d.fullName)}</td>
+          <td>${SmartCareUI.escapeHtml(d.specialization)}</td>
+          <td>${SmartCareUI.escapeHtml(d.departmentName || '—')}</td>
+          <td><span class="badge ${d.status === 'ACTIVE' ? 'badge-teal' : 'badge-neutral'}">${d.status}</span></td>
+          <td>${!deactivated ? `<button class="btn btn-ghost btn-sm" data-remove="${d.id}">Deactivate</button>` : ''}</td>
+        </tr>`;
+    }
+
+    async function loadDoctors() {
+      try {
+        const doctors = await SmartCareAPI.getDoctors();
+        const body = document.getElementById('doctors-body');
+        body.innerHTML = doctors.length
+          ? doctors.map(row).join('')
+          : '<tr><td colspan="5" class="text-muted">No doctors yet.</td></tr>';
+        body.querySelectorAll('[data-remove]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('Deactivate this doctor?')) return;
+            await SmartCareAPI.deleteDoctor(btn.dataset.remove);
+            loadDoctors();
+          });
+        });
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load doctors.');
+      }
+    }
+
+    async function loadDepartmentOptions() {
+      try {
+        const departments = await SmartCareAPI.getDepartments();
+        const select = document.getElementById('doc-department');
+        select.innerHTML = departments.map(d => `<option value="${d.id}">${SmartCareUI.escapeHtml(d.name)}</option>`).join('');
+      } catch (err) { /* non-fatal */ }
+    }
+
+    document.getElementById('add-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await SmartCareAPI.createDoctor({
+          fullName: document.getElementById('doc-name').value.trim(),
+          email: document.getElementById('doc-email').value.trim(),
+          temporaryPassword: document.getElementById('doc-password').value,
+          specialization: document.getElementById('doc-specialization').value.trim(),
+          departmentId: Number(document.getElementById('doc-department').value),
+          consultationFee: Number(document.getElementById('doc-fee').value),
+        });
+        document.getElementById('add-form').reset();
+        document.getElementById('add-form').classList.add('hidden');
+        SmartCareUI.toast('Doctor account created.', 'success');
+        loadDoctors();
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not create that doctor account.');
+      }
+    });
+
+    loadDepartmentOptions();
+    loadDoctors();
+  </script>
+</body>
+</html>

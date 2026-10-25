@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:smartcare_test;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+  sql:
+    init:
+      # The seed script (data.sql) targets MySQL syntax/roles and is not
+      # needed for tests, which build their own fixtures per test.
+      mode: never
+
+smartcare:
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B59
+    expiration-ms: 3600000
+    refresh-expiration-ms: 86400000

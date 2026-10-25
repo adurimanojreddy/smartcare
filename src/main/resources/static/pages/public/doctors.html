@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doctors &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <section class="section">
+    <div class="container-app">
+      <h1>Find a doctor</h1>
+      <p class="text-muted">Search by name or specialization, or browse everyone we work with.</p>
+
+      <form id="search-form" class="flex gap-3 mt-4" style="flex-wrap:wrap;" novalidate>
+        <input class="form-control" style="max-width:260px;" id="search-name" placeholder="Doctor name">
+        <input class="form-control" style="max-width:260px;" id="search-specialization" placeholder="Specialization">
+        <button class="btn btn-primary" type="submit">Search</button>
+      </form>
+
+      <div id="doctors-grid" class="panel-grid mt-6">
+        <p class="text-muted">Loading doctors&hellip;</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="sc-footer-slot"></div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    function renderDoctors(doctors) {
+      const grid = document.getElementById('doctors-grid');
+      if (!doctors.length) {
+        grid.innerHTML = '<div class="empty-state">No doctors match that search.</div>';
+        return;
+      }
+      grid.innerHTML = doctors.map(d => `
+        <div class="panel">
+          <h4>Dr. ${SmartCareUI.escapeHtml(d.fullName)}</h4>
+          <p class="text-small text-muted mb-0">${SmartCareUI.escapeHtml(d.specialization)} &middot; ${SmartCareUI.escapeHtml(d.departmentName || '')}</p>
+          <p class="text-small text-muted">${d.experienceYears ? d.experienceYears + ' yrs experience' : ''} ${d.consultationFee ? '&middot; $' + d.consultationFee + ' consult' : ''}</p>
+          <a class="btn btn-outline btn-sm" href="../patient/book-appointment.html?doctorId=${d.id}">Book with Dr. ${SmartCareUI.escapeHtml(d.fullName)}</a>
+        </div>
+      `).join('');
+    }
+
+    async function loadAll() {
+      const params = new URLSearchParams(window.location.search);
+      const departmentId = params.get('departmentId');
+      try {
+        const doctors = departmentId
+          ? await SmartCareAPI.searchDoctors({ departmentId })
+          : await SmartCareAPI.getDoctors();
+        renderDoctors(doctors);
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load doctors.');
+      }
+    }
+
+    document.getElementById('search-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const doctors = await SmartCareAPI.searchDoctors({
+          name: document.getElementById('search-name').value.trim(),
+          specialization: document.getElementById('search-specialization').value.trim(),
+        });
+        renderDoctors(doctors);
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Search failed.');
+      }
+    });
+
+    loadAll();
+  </script>
+</body>
+</html>

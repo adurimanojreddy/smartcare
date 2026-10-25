@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doctor Dashboard &mdash; SmartCare</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+
+  <div id="sc-navbar-slot"></div>
+
+  <div class="dash-shell">
+    <div id="sc-sidebar-slot"></div>
+
+    <main class="dash-main">
+      <div class="dash-header">
+        <div>
+          <h2 id="greeting">Welcome back, Doctor</h2>
+          <p class="text-muted mb-0" id="today-date"></p>
+        </div>
+      </div>
+
+      <div class="panel-grid">
+        <div class="panel">
+          <h4>Today's appointments</h4>
+          <p class="text-muted text-small mb-0" id="today-count">&hellip;</p>
+          <a class="btn btn-outline btn-sm mt-4" href="todays-appointments.html">View list</a>
+        </div>
+        <div class="panel panel-amber">
+          <h4>Live queue</h4>
+          <p class="text-muted text-small mb-0" id="waiting-count">&hellip;</p>
+          <a class="btn btn-outline btn-sm mt-4" href="live-queue.html">Manage queue</a>
+        </div>
+        <div class="panel panel-green">
+          <h4>Schedule</h4>
+          <p class="text-muted text-small mb-0">Manage your weekly availability.</p>
+          <a class="btn btn-outline btn-sm mt-4" href="schedule.html">Edit schedule</a>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>window.SC_BASE = '../../';</script>
+  <script src="../../js/api.js"></script>
+  <script src="../../js/utils.js"></script>
+  <script src="../../js/layout.js"></script>
+  <script>
+    const user = SmartCareUI.requireAuth(['ROLE_DOCTOR']);
+
+    async function load() {
+      if (!user) return;
+      document.getElementById('greeting').textContent = `Welcome back, Dr. ${user.fullName.split(' ').pop()}`;
+      document.getElementById('today-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+
+      try {
+        const doctor = await SmartCareAPI.getMyDoctorProfile();
+        const today = new Date().toISOString().split('T')[0];
+        const appointments = await SmartCareAPI.getAppointmentsForDoctor(doctor.id, today);
+        document.getElementById('today-count').textContent = `${appointments.length} scheduled today`;
+
+        const queue = await SmartCareAPI.getDoctorQueue(doctor.id);
+        const waiting = queue.filter(q => q.status === 'WAITING').length;
+        document.getElementById('waiting-count').textContent = `${waiting} patient${waiting === 1 ? '' : 's'} waiting`;
+      } catch (err) {
+        SmartCareUI.handleError(err, 'Could not load your dashboard.');
+      }
+    }
+    load();
+  </script>
+</body>
+</html>
